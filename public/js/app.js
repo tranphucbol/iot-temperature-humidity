@@ -23,7 +23,7 @@ function go(){
                             <div class="bg-img">
                                 <div class="overlay"></div>
                                 <div class="inner">
-                                    <h1>${item.location}</h1>
+                                    <h1>${item.name}</h1>
                                     <small class="info">
                                         <span class="temperature">${item.temperature} <i class="fas fa-temperature-low"></i></span> 
                                         <span class="humidity">${item.humidity} <i class="fas fa-tint"></i></span>

@@ -4,6 +4,7 @@ const expressHbs = require("express-handlebars");
 const bodyParser = require("body-parser");
 const { data } = require("./mqtt");
 const config = require("./config");
+const logger = require("./logger");
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -33,5 +34,5 @@ app.post("/api/data", (req, res) => {
 app.set("view engine", "hbs");
 
 app.listen(config.port, () => {
-    console.log("server is listening on port " + config.port);
+    logger.info("Server is listening on port " + config.port);
 });

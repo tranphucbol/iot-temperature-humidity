@@ -1,52 +1,58 @@
 const mqtt = require("mqtt");
-const config = require("../config")
+const config = require("../config");
+const { places } = config;
+const db = require("../database");
+const moment = require("moment");
+const logger = require("../logger")
 
-let data = {
-    'lt': {
-        location: 'Long Thành',
-        temperature: 26.0,
-        humidity: 80,
-        img: "https://images.unsplash.com/photo-1444418185997-1145401101e0?format=auto&auto=compress&dpr=2&crop=entropy&fit=crop&w=1355&h=858&q=80"
-    },
-    'hcm': {
-        location: 'Hồ Chí Minh',
-        temperature: 27.0,
-        humidity: 90,
-        img: "https://images.unsplash.com/photo-1431620828042-54af7f3a9e28?format=auto&auto=compress&dpr=2&crop=entropy&fit=crop&w=1102&h=740&q=80"
-    },
-    'hn': {
-        location: 'Hà Nội',
-        temperature: 13.0,
-        humidity: 50
-    }
-}
+const data = {};
 
-const client  = mqtt.connect(config.mqtt.url, {
+const client = mqtt.connect(config.mqtt.url, {
     username: config.mqtt.username,
     password: config.mqtt.password
-})
-
-client.on("connect", function() {
-    const topics = Object.keys(data);
-    topics.forEach(topic => client.subscribe(topic))
-    client.subscribe("test", function(err) {
-        if (!err) {
-            // client.publish("test", "Hello mqtt");
-        }
-    });
 });
 
-client.on("message", function(topic, message) {
+(async () => {
+    const sql = `
+        SELECT p.*, thl.temperature, thl.humidity
+        FROM place p, temp_humi_log thl
+        WHERE p.id = thl.placeId
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM place pt, temp_humi_log thlt 
+            WHERE pt.id = thlt.placeId 
+            AND pt.id = p.id 
+            AND thlt.logTime > thl.logTime)
+        ORDER BY p.id`;
+    const result = await db.query(sql);
+
+    result[0].forEach(place => {
+        data[place.code] = place;
+    });
+
+    logger.info(`Load data ${JSON.stringify(data)}`)
+
+    const topics = Object.keys(data);
+    topics.forEach(topic => client.subscribe(topic));
+    logger.info(`Subscribe ${JSON.stringify(topics)}`)
+})();
+
+client.on("message", async (topic, message) => {
     // message is Buffer
 
-    if(data[topic] !== undefined) {
-        const msg = JSON.parse(message.toString())
+    if (data[topic] !== undefined) {
+        const { temperature, humidity } = JSON.parse(message.toString());
+        const time = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+        await db.query(
+            "INSERT INTO temp_humi_log (placeId, temperature, humidity, logTime) VALUES (?, ?, ?, ?)",
+            [data[topic].id, temperature, humidity, time]
+        );
         data[topic] = {
             ...data[topic],
-            temperature: msg.temperature,
-            humidity: msg.humidity
-        }
-        console.log(`${new Date().getTime()} INFO:::: topic: ${topic}, data: ${message.toString()}`);
+            temperature,
+            humidity
+        };
+        logger.info(`topic: ${topic}, data: ${message.toString()}`)
     }
 });
 

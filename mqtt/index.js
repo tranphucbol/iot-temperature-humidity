@@ -3,7 +3,7 @@ const config = require("../config");
 const { places } = config;
 const db = require("../database");
 const moment = require("moment");
-const logger = require("../logger")
+const logger = require("../logger");
 
 const data = {};
 
@@ -30,11 +30,11 @@ const client = mqtt.connect(config.mqtt.url, {
         data[place.code] = place;
     });
 
-    logger.info(`Load data ${JSON.stringify(data)}`)
+    logger.info(`Load data ${JSON.stringify(data)}`);
 
     const topics = Object.keys(data);
     topics.forEach(topic => client.subscribe(topic));
-    logger.info(`Subscribe ${JSON.stringify(topics)}`)
+    logger.info(`Subscribe ${JSON.stringify(topics)}`);
 })();
 
 client.on("message", async (topic, message) => {
@@ -52,7 +52,7 @@ client.on("message", async (topic, message) => {
             temperature,
             humidity
         };
-        logger.info(`topic: ${topic}, data: ${message.toString()}`)
+        logger.info(`topic: ${topic}, data: ${message.toString()}`);
     }
 });
 

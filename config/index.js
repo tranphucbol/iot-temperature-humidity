@@ -1,5 +1,5 @@
 const dotenv = require("dotenv");
-const logger = require("../logger")
+const logger = require("../logger");
 
 process.env.NODE_ENV = process.env.NODE_ENV || "development";
 
@@ -24,6 +24,6 @@ const config = {
     }
 };
 
-logger.info(`Load config: ${JSON.stringify(config)}`)
+logger.info(`Load config: ${JSON.stringify(config)}`);
 
 module.exports = config;

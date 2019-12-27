@@ -24,6 +24,7 @@ const config = {
     }
 };
 
-logger.info(`Load config: ${JSON.stringify(config)}`);
+// logger.info(`Load config: ${JSON.stringify(config)}`);
+logger.info(`Load config done !!!`)
 
 module.exports = config;

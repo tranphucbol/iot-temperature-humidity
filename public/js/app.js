@@ -139,7 +139,7 @@ function go() {
         });
     });
 
-    let messageId = 0;
+    let mId = 0;
 
     $("#place-form").submit(function(e) {
         e.preventDefault();
@@ -150,6 +150,7 @@ function go() {
             img: $('#place-form input[name="img"]').val(),
             secret: $('#place-form input[name="secret"]').val()
         };
+        const messageId = mId++;
 
         $.post("/place", data)
             .done(function(resp) {
@@ -157,7 +158,6 @@ function go() {
                 $('#place-form input[name="code"]').val("");
                 $('#place-form input[name="img"]').val("");
                 $('#place-form input[name="secret"]').val("");
-                messageId++;
                 $(
                     `<span id="message-${messageId}" class="badge badge-success message" >${resp.message}</span>`
                 )
@@ -172,7 +172,6 @@ function go() {
                     });
             })
             .fail(function(err) {
-                messageId++;
                 $(
                     `<span id="message-${messageId}" class="badge badge-danger message" >${err.responseJSON.message}</span>`
                 )

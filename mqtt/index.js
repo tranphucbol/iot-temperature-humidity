@@ -15,9 +15,9 @@ const client = mqtt.connect(config.mqtt.url, {
 (async () => {
     const sql = `
         SELECT p.*, thl.temperature, thl.humidity
-        FROM place p, temp_humi_log thl
-        WHERE p.id = thl.placeId
-        AND NOT EXISTS (
+        FROM place p LEFT JOIN temp_humi_log thl 
+        ON p.id = thl.placeId
+        WHERE NOT EXISTS (
             SELECT 1 
             FROM place pt, temp_humi_log thlt 
             WHERE pt.id = thlt.placeId 
@@ -27,6 +27,8 @@ const client = mqtt.connect(config.mqtt.url, {
     const result = await db.query(sql);
 
     result[0].forEach(place => {
+        place.temperature = place.temperature === null ? 0 : place.temperature;
+        place.humidity = place.humidity === null ? 0 : place.humidity;
         data[place.code] = place;
     });
 
@@ -57,5 +59,6 @@ client.on("message", async (topic, message) => {
 });
 
 module.exports = {
-    data
+    data,
+    clientMQTT: client
 };

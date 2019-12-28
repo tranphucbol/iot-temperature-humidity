@@ -36,7 +36,7 @@ small {
   -ms-transform: translate(-50%, -50%);
 }
 
-.card {
+.card-iot {
   /* height: 400px; */
   margin: 0 auto;
   margin-left: 8.5%;
@@ -171,7 +171,9 @@ small {
 }
 
 @media screen and (max-width: 375px) and (min-width: 0) {
-  #container {
+
+  #container,
+  .card {
     width: 100%;
   }
 }
@@ -416,4 +418,62 @@ small {
 .owl-carousel .owl-video-frame {
   position: relative;
   z-index: 1;
+}
+
+.card {
+  border-radius: 9px;
+  width: 375px;
+  position: relative;
+}
+
+.button-link,
+.button-place {
+  position: absolute;
+  border-radius: 30px;
+  height: 30px;
+  width: 30px;
+  line-height: 30px;
+  text-align: center;
+  z-index: 10;
+  color: #fff;
+  box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.3);
+  transform: translate(50%, 0);
+}
+
+.button-link {
+  top: 10px;
+  right: 0;
+}
+
+.button-place {
+  top: 8.5%;
+  right: 8.5%;
+  background-color: #2b4488;
+}
+
+.button-link:hover,
+.button-place:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+.sensor-title {
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+}
+
+.btn-primary {
+  border-color: #2b4488;
+  background-color: #2b4488;
+}
+
+.message {
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+#cards {
+  position: relative;
 }

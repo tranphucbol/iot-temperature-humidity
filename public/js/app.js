@@ -18,7 +18,7 @@ function go() {
         data.forEach(item => {
             cards.append(`
                     <div class="cards_container">
-                        <div class="card">
+                        <div class="card-iot">
                             <div class="bg-img">
                                 <div class="overlay"></div>
                                 <div class="inner">
@@ -30,6 +30,7 @@ function go() {
                                 </div>
                             </div>
                         </div>
+                        <a href="/place" class="button-place"><i class="fas fa-plus"></i></a>
                     </div>
                 `);
         });
@@ -55,7 +56,7 @@ function go() {
             };
         })(jQuery);
 
-        $(".card").each(function(index) {
+        $(".card-iot").each(function(index) {
             var that = $(this);
             var b = that.find(".bg-img");
             b.css({
@@ -136,6 +137,56 @@ function go() {
             tween2.reverse();
             tween3.reverse();
         });
+    });
+
+    let messageId = 0;
+
+    $("#place-form").submit(function(e) {
+        e.preventDefault();
+
+        const data = {
+            name: $('#place-form input[name="name"]').val(),
+            code: $('#place-form input[name="code"]').val(),
+            img: $('#place-form input[name="img"]').val(),
+            secret: $('#place-form input[name="secret"]').val()
+        };
+
+        $.post("/place", data)
+            .done(function(resp) {
+                $('#place-form input[name="name"]').val("");
+                $('#place-form input[name="code"]').val("");
+                $('#place-form input[name="img"]').val("");
+                $('#place-form input[name="secret"]').val("");
+                messageId++;
+                $(
+                    `<span id="message-${messageId}" class="badge badge-success message" >${resp.message}</span>`
+                )
+                    .insertAfter(".sensor-title")
+                    .hide()
+                    .show("slow", function() {
+                        setTimeout(() => {
+                            $(`#message-${messageId}`).hide("slow", function() {
+                                $(`#message-${messageId}`).remove();
+                            });
+                        }, 2000);
+                    });
+            })
+            .fail(function(err) {
+                messageId++;
+                $(
+                    `<span id="message-${messageId}" class="badge badge-danger message" >${err.responseJSON.message}</span>`
+                )
+                    .insertAfter(".sensor-title")
+                    .hide()
+                    .show("slow", function() {
+                        setTimeout(() => {
+                            $(`#message-${messageId}`).hide("slow", function() {
+                                $(`#message-${messageId}`).remove();
+                            });
+                        }, 2000);
+                    });
+                //
+            });
     });
 }
 

@@ -21,10 +21,11 @@ const config = {
         name: process.env.DATABASE_NAME,
         username: process.env.DATABASE_USERNAME,
         password: process.env.DATABASE_PASSWORD
-    }
+    },
+    secret: process.env.SECRET
 };
 
 // logger.info(`Load config: ${JSON.stringify(config)}`);
-logger.info(`Load config done !!!`)
+logger.info(`Load config done !!!`);
 
 module.exports = config;

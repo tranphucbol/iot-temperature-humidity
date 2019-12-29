@@ -120,7 +120,7 @@ app.post("/api/light", async (req, res) => {
 
             const sqlUpdate = `
                 UPDATE temp_humi_log
-                SET lightStatus = ?, auto = 0
+                SET lightStatus = ?, auto = 1
                 WHERE TIMESTAMPDIFF(SECOND, logTime, ?) < 150
                 AND TIMESTAMPDIFF(SECOND, logTime, ?) >= 0
                 AND placeId = ?

@@ -7,7 +7,7 @@ const logger = require("../logger");
 const DecisionTree = require("decision-tree");
 
 const data = {};
-let decisionTree;
+let decisionTree = null;
 const mapIdToCode = {};
 const decisionTreeData = {
     count: 0
@@ -16,6 +16,10 @@ const decisionTreeData = {
 const client = mqtt.connect(config.mqtt.url, {
     username: config.mqtt.username,
     password: config.mqtt.password
+});
+
+client.on('connect', () => {
+    client.subscribe("greeting");
 });
 
 (async () => {
@@ -30,7 +34,20 @@ const client = mqtt.connect(config.mqtt.url, {
             AND pt.id = p.id 
             AND thlt.logTime > thl.logTime)
         ORDER BY p.id`;
-    const result = await db.query(sql);
+
+    const countSql = 
+    `   
+        SELECT COUNT(*) as count
+        FROM temp_humi_log
+        WHERE auto = 1;
+    `
+
+    const [resultCount, result] = await Promise.all([db.query(countSql), db.query(sql)]);
+    
+    decisionTreeData.count = resultCount[0][0].count % 50;
+
+    logger.info(`Current count: ${decisionTreeData.count}`);
+
 
     result[0].forEach(place => {
         place.temperature = place.temperature === null ? 0 : place.temperature;
@@ -55,27 +72,46 @@ client.on("message", async (topic, message) => {
         trainDecisionTree();
         decisionTreeData.count = 0;
     }
+
+    if(topic === "greeting") {
+        logger.info(`${message} connected`);
+    }
+
     if (data[topic] !== undefined) {
         const { temperature, humidity } = JSON.parse(message.toString());
         const time = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-        let predictLightStatus = decisionTree.predict({
-            temperature: temperature,
-            humidity: humidity,
-            placeId: data[topic].id,
-            noon: Math.floor(curHour / 6)
-        });
+
+
+        let lightStatus = data[topic].lightStatus;
+
+        if(decisionTree !== null) {
+            lightStatus = decisionTree.predict({
+                temperature: temperature,
+                humidity: humidity,
+                placeId: data[topic].id,
+                noon: Math.floor(new Date().getHours() / 6)
+            });
+        }
         const result = await db.query(
             "INSERT INTO temp_humi_log (placeId, temperature, humidity, logTime, lightStatus) VALUES (?, ?, ?, ?, ?)",
-            [data[topic].id, temperature, humidity, time, predictLightStatus]
+            [data[topic].id, temperature, humidity, time, lightStatus]
         );
         data[topic] = {
             ...data[topic],
             temperature,
             humidity,
-            lightStatus: predictLightStatus,
+            lightStatus,
             logId: result[0].insertId
         };
-        logger.info(`Received from ${topic}, data: ${JSON.stringify({temperature, humidity})}, predictLightStatus: ${predictLightStatus}`)
+
+        client.publish(data[topic].codeEsp, lightStatus + "");
+
+        if(decisionTree !== null) {
+            logger.info(`Received from ${topic}, data: ${JSON.stringify({temperature, humidity})}, predictLightStatus: ${lightStatus}`)
+        } else {
+            logger.info(`Received from ${topic}, data: ${JSON.stringify({temperature, humidity})}, lightStatus: ${lightStatus}`)
+        }
+        
     }
 });
 
@@ -83,17 +119,20 @@ async function trainDecisionTree() {
     let sql = `
         SELECT thl.placeId, thl.temperature, thl.humidity, thl.logtime, thl.lightStatus
         FROM temp_humi_log thl 
-        WHERE auto=0`;
+        WHERE auto=1`;
     let result = await db.query(sql);
     let preData = result[0];
-    preData.forEach(e => {
-        curHour = e.logtime.getHours();
-        e.noon = Math.floor(curHour / 6);
-        delete e.logtime;
-    });
-    var features = ["placeId", "temperature", "humidity", "noon"];
-    var class_name = "lightStatus";
-    decisionTree = new DecisionTree(preData, class_name, features);
+    if(preData.length !== 0) {
+        preData.forEach(e => {
+            curHour = e.logtime.getHours();
+            e.noon = Math.floor(curHour / 6);
+            delete e.logtime;
+        });
+        var features = ["placeId", "temperature", "humidity", "noon"];
+        var class_name = "lightStatus";
+        decisionTree = new DecisionTree(preData, class_name, features);
+        logger.info(`Build tree successfully`);
+    }
 }
 
 module.exports = {

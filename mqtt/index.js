@@ -4,9 +4,14 @@ const { places } = config;
 const db = require("../database");
 const moment = require("moment");
 const logger = require("../logger");
+const DecisionTree = require("decision-tree");
 
 const data = {};
+let decisionTree;
 const mapIdToCode = {};
+const decisionTreeData = {
+    count: 0
+}
 
 const client = mqtt.connect(config.mqtt.url, {
     username: config.mqtt.username,
@@ -41,36 +46,59 @@ const client = mqtt.connect(config.mqtt.url, {
     const topics = Object.keys(data);
     topics.forEach(topic => client.subscribe(topic));
     logger.info(`Subscribe ${JSON.stringify(topics)}`);
+    trainDecisionTree();
 })();
 
 client.on("message", async (topic, message) => {
     // message is Buffer
-
+    if (decisionTreeData.count == 50) {
+        trainDecisionTree();
+        decisionTreeData.count = 0;
+    }
     if (data[topic] !== undefined) {
         const { temperature, humidity } = JSON.parse(message.toString());
         const time = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
+        let predictLightStatus = decisionTree.predict({
+            temperature: temperature,
+            humidity: humidity,
+            placeId: data[topic].id,
+            noon: Math.floor(curHour / 6)
+        });
         const result = await db.query(
             "INSERT INTO temp_humi_log (placeId, temperature, humidity, logTime, lightStatus) VALUES (?, ?, ?, ?, ?)",
-            [
-                data[topic].id,
-                temperature,
-                humidity,
-                time,
-                data[topic].lightStatus
-            ]
+            [data[topic].id, temperature, humidity, time, predictLightStatus]
         );
         data[topic] = {
             ...data[topic],
             temperature,
             humidity,
+            lightStatus: predictLightStatus,
             logId: result[0].insertId
         };
-        logger.info(`topic: ${topic}, data: ${message.toString()}`);
+        logger.info(`Received from ${topic}, data: ${JSON.stringify({temperature, humidity})}, predictLightStatus: ${predictLightStatus}`)
     }
 });
+
+async function trainDecisionTree() {
+    let sql = `
+        SELECT thl.placeId, thl.temperature, thl.humidity, thl.logtime, thl.lightStatus
+        FROM temp_humi_log thl 
+        WHERE auto=0`;
+    let result = await db.query(sql);
+    let preData = result[0];
+    preData.forEach(e => {
+        curHour = e.logtime.getHours();
+        e.noon = Math.floor(curHour / 6);
+        delete e.logtime;
+    });
+    var features = ["placeId", "temperature", "humidity", "noon"];
+    var class_name = "lightStatus";
+    decisionTree = new DecisionTree(preData, class_name, features);
+}
 
 module.exports = {
     data,
     mapIdToCode,
-    clientMQTT: client
+    clientMQTT: client,
+    decisionTreeData
 };

@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const expressHbs = require("express-handlebars");
 const bodyParser = require("body-parser");
-const { data, clientMQTT, mapIdToCode } = require("./mqtt");
+const { data, clientMQTT, mapIdToCode, decisionTreeData } = require("./mqtt");
 const config = require("./config");
 const logger = require("./logger");
 const db = require("./database");
@@ -149,16 +149,12 @@ app.post("/api/light", async (req, res) => {
                 `Update light status, code: ${code}, lightStatus: ${lightStatus}, affectedRows: ${resultUpdate[0].affectedRows}`
             );
 
-            clientMQTT.publish(
-                data[code].codeEsp,
-                JSON.stringify({ lightStatus })
-            );
+            clientMQTT.publish(data[code].codeEsp, lightStatus + "");
 
             logger.info(
-                `Publish to ${data[code].codeEsp}: ${JSON.stringify({
-                    lightStatus
-                })}`
+                `Publish to ${data[code].codeEsp}, lightStatus: ${lightStatus}`
             );
+            decisionTreeData.count++;
 
             res.json({ message: "ok" });
         } catch (err) {

@@ -140,14 +140,14 @@ app.post("/api/light", async (req, res) => {
 
             const code = mapIdToCode[placeId].code;
 
+            logger.info(
+                `Update light status, code: ${code}, lightStatus: ${lightStatus}, affectedRows: ${resultUpdate[0].affectedRows}`
+            );
+
             data[code] = {
                 ...data[code],
                 lightStatus
             };
-
-            logger.info(
-                `Update light status, code: ${code}, lightStatus: ${lightStatus}, affectedRows: ${resultUpdate[0].affectedRows}`
-            );
 
             clientMQTT.publish(data[code].codeEsp, lightStatus + "");
 

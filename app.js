@@ -88,6 +88,10 @@ app.post("/place", async (req, res) => {
     }
 });
 
+app.post("/api/light", (req, res) => {
+    res.json(req.body);
+});
+
 app.post("/api/data", (req, res) => {
     res.json({
         data: Object.values(data)

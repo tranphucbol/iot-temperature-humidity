@@ -6,6 +6,7 @@ const moment = require("moment");
 const logger = require("../logger");
 
 const data = {};
+const mapIdToCode = {};
 
 const client = mqtt.connect(config.mqtt.url, {
     username: config.mqtt.username,
@@ -14,7 +15,7 @@ const client = mqtt.connect(config.mqtt.url, {
 
 (async () => {
     const sql = `
-        SELECT p.*, thl.temperature, thl.humidity
+        SELECT p.*, thl.temperature, thl.humidity, thl.lightStatus, thl.id AS logId
         FROM place p LEFT JOIN temp_humi_log thl 
         ON p.id = thl.placeId
         WHERE NOT EXISTS (
@@ -29,7 +30,10 @@ const client = mqtt.connect(config.mqtt.url, {
     result[0].forEach(place => {
         place.temperature = place.temperature === null ? 0 : place.temperature;
         place.humidity = place.humidity === null ? 0 : place.humidity;
+        place.lightStatus = place.lightStatus === null ? 0 : place.lightStatus;
+        place.logId = place.logId === null ? 0 : place.logId;
         data[place.code] = place;
+        mapIdToCode[place.id] = { code: place.code };
     });
 
     logger.info(`Load data ${JSON.stringify(data)}`);
@@ -45,14 +49,21 @@ client.on("message", async (topic, message) => {
     if (data[topic] !== undefined) {
         const { temperature, humidity } = JSON.parse(message.toString());
         const time = moment(Date.now()).format("YYYY-MM-DD HH:mm:ss");
-        await db.query(
-            "INSERT INTO temp_humi_log (placeId, temperature, humidity, logTime) VALUES (?, ?, ?, ?)",
-            [data[topic].id, temperature, humidity, time]
+        const result = await db.query(
+            "INSERT INTO temp_humi_log (placeId, temperature, humidity, logTime, lightStatus) VALUES (?, ?, ?, ?, ?)",
+            [
+                data[topic].id,
+                temperature,
+                humidity,
+                time,
+                data[topic].lightStatus
+            ]
         );
         data[topic] = {
             ...data[topic],
             temperature,
-            humidity
+            humidity,
+            logId: result[0].insertId
         };
         logger.info(`topic: ${topic}, data: ${message.toString()}`);
     }
@@ -60,5 +71,6 @@ client.on("message", async (topic, message) => {
 
 module.exports = {
     data,
+    mapIdToCode,
     clientMQTT: client
 };

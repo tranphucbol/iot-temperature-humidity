@@ -32,7 +32,9 @@ function go() {
                         </div>
                         <div class="button-group-utils">
                             <a href="/place" class="btn-utils btn-place"><i class="fas fa-plus"></i></a>
-                            <a href="#" class="btn-utils btn-light" light-status="on" place-id="${item.id}"><i class="fas fa-lightbulb"></i></a>
+                            <a href="#" class="btn-utils btn-light" light-status="${item.lightStatus === 1 ? "on" : "off"}" log-id="${item.logId}" place-id="${item.id}">
+                                ${item.lightStatus === 1 ? `<i class="fas fa-lightbulb"></i>` : `<i class="far fa-lightbulb"></i>`}
+                            </a>
                         </div>
                     </div>
                 `);
@@ -41,14 +43,14 @@ function go() {
         $(".btn-light").click(function(e) {
             e.preventDefault();
             let that = $(this);
-            let id = that.attr("place-id");
-            let status = that.attr("light-status") === "on" ? 0 : 1;
-            $.post('/api/light', {id, status})
+            let id = that.attr("log-id");
+            let lightStatus = that.attr("light-status") === "on" ? 0 : 1;
+            let placeId = that.attr("place-id");
+            $.post('/api/light', {id, lightStatus, placeId})
                 .success(function(resp) {
-                    console.log(resp)
-                    that.attr("light-status", resp.status === 1 ? "on" : "off");
+                    that.attr("light-status", lightStatus === 1 ? "on" : "off");
                     that.empty();
-                    let icon = resp.status === 1 ? `<i class="fas fa-lightbulb"></i>` : `<i class="far fa-lightbulb"></i>`
+                    let icon = lightStatus === 1 ? `<i class="fas fa-lightbulb"></i>` : `<i class="far fa-lightbulb"></i>`
                     that.append(icon)
                 })
                 .fail(function(err) {

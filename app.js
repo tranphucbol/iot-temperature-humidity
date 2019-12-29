@@ -2,11 +2,12 @@ const express = require("express");
 const app = express();
 const expressHbs = require("express-handlebars");
 const bodyParser = require("body-parser");
-const { data, clientMQTT } = require("./mqtt");
+const { data, clientMQTT, mapIdToCode } = require("./mqtt");
 const config = require("./config");
 const logger = require("./logger");
 const db = require("./database");
 const bcrypt = require("bcrypt");
+const moment = require("moment");
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -57,8 +58,8 @@ app.post("/place", async (req, res) => {
             img = img === undefined ? "" : img;
             try {
                 const result = await db.query(
-                    "INSERT INTO place (name, code, img) VALUES (?, ?, ?)",
-                    [name, code, img]
+                    "INSERT INTO place (name, code, codeEsp, img) VALUES (?, ?, ?, ?)",
+                    [name, code, `${code}-esp`, img]
                 );
                 data[code] = {
                     id: result[0].insertId,
@@ -66,7 +67,8 @@ app.post("/place", async (req, res) => {
                     code,
                     img,
                     temperature: 0,
-                    humidity: 0
+                    humidity: 0,
+                    codeEsp: `${code}-esp`
                 };
 
                 logger.info(`Add place: ${JSON.stringify(data[code])}`);
@@ -88,8 +90,85 @@ app.post("/place", async (req, res) => {
     }
 });
 
-app.post("/api/light", (req, res) => {
-    res.json(req.body);
+app.post("/api/light", async (req, res) => {
+    let { id, placeId, lightStatus } = req.body;
+
+    if (
+        id === undefined ||
+        placeId === undefined ||
+        lightStatus === undefined ||
+        id === "" ||
+        lightStatus === "" ||
+        placeId === ""
+    ) {
+        logger.error(`Invaild input: ${JSON.stringify(req.body)}`);
+        res.status(400).json({
+            code: 0,
+            message: "Invalid input"
+        });
+    } else {
+        try {
+            id = parseInt(id);
+            placeId = parseInt(placeId);
+            lightStatus = parseInt(lightStatus);
+
+            const sqlTimestamp = `
+                SELECT logTime
+                FROM temp_humi_log
+                WHERE id = ? AND placeId = ?
+            `;
+
+            const sqlUpdate = `
+                UPDATE temp_humi_log
+                SET lightStatus = ?
+                WHERE TIMESTAMPDIFF(SECOND, logTime, ?) < 150
+                AND TIMESTAMPDIFF(SECOND, logTime, ?) >= 0
+                AND placeId = ?
+            `;
+
+            const resultTimestamp = await db.query(sqlTimestamp, [id, placeId]);
+            const time = moment(resultTimestamp[0][0].logTime).format(
+                "YYYY-MM-DD HH:mm:ss"
+            );
+
+            const resultUpdate = await db.query(sqlUpdate, [
+                lightStatus,
+                time,
+                time,
+                placeId
+            ]);
+
+            const code = mapIdToCode[placeId].code;
+
+            data[code] = {
+                ...data[code],
+                lightStatus
+            };
+
+            logger.info(
+                `Update light status, code: ${code}, lightStatus: ${lightStatus}, affectedRows: ${resultUpdate[0].affectedRows}`
+            );
+
+            clientMQTT.publish(
+                data[code].codeEsp,
+                JSON.stringify({ lightStatus })
+            );
+
+            logger.info(
+                `Publish to ${data[code].codeEsp}: ${JSON.stringify({
+                    lightStatus
+                })}`
+            );
+
+            res.json({ message: "ok" });
+        } catch (err) {
+            logger.error(err);
+            res.status(400).json({
+                code: 0,
+                message: "Invalid input or id not found"
+            });
+        }
+    }
 });
 
 app.post("/api/data", (req, res) => {

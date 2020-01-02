@@ -92,6 +92,12 @@ client.on("message", async (topic, message) => {
                 noon: Math.floor(new Date().getHours() / 6)
             });
         }
+
+        if(temperature < data[topic].temperature + 2 && temperature > data[topic].temperature - 2 
+            && humidity < data[topic].humidity + 5 && humidity > data[topic].humidity - 5) {
+            lightStatus = data[topic].lightStatus;
+        }
+
         const result = await db.query(
             "INSERT INTO temp_humi_log (placeId, temperature, humidity, logTime, lightStatus) VALUES (?, ?, ?, ?, ?)",
             [data[topic].id, temperature, humidity, time, lightStatus]
